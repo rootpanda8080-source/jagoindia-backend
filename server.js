@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.routes.js';
 import blogRoutes from './routes/blog.routes.js';
 import errorHandler from './utils/errorHandler.js';
 import { seedAdmin } from './utils/seedAdmin.js';
+import { initKeepAlive, verifyKeepAliveConfig } from './utils/keepAlive.js';
 
 dotenv.config();
 
@@ -73,11 +74,22 @@ app.use('/api/blogs', blogRoutes);
 app.get('/api/health', (req, res) => {
   const uptime = Math.floor((Date.now() - startTime) / 1000);
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  const timestamp = new Date().toISOString();
   
   res.json({
-    status: 'running',
+    status: 'ok',
     uptime: `${uptime}s`,
-    db: dbStatus
+    db: dbStatus,
+    timestamp: timestamp,
+    service: 'JagoIndia Backend'
+  });
+});
+
+// Lightweight health check (for external monitors)
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -94,4 +106,17 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 JagoIndia Backend running on port ${PORT}`);
   console.log(`📡 Accept requests from: ${uniqueOrigins.join(', ')}`);
+  
+  // Initialize keep-alive for production (Render free tier)
+  if (process.env.NODE_ENV === 'production') {
+    verifyKeepAliveConfig();
+    
+    if (process.env.SELF_PING_URL) {
+      initKeepAlive(process.env.SELF_PING_URL, {
+        enabled: process.env.ENABLE_SELF_PING !== 'false',
+        interval: parseInt(process.env.SELF_PING_INTERVAL || '600000', 10),
+        verbose: process.env.KEEP_ALIVE_VERBOSE === 'true'
+      });
+    }
+  }
 });
