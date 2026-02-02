@@ -19,7 +19,7 @@ const router = express.Router();
 router.get('/id/:id', getBlogById);
 router.get('/', getAllBlogs);
 router.get('/:slug', getBlogBySlug);
-router.post('/:id/like', protect, likeBlog);
+router.post('/:id/like', likeBlog); // Allow anonymous likes (no protect middleware)
 
 // Admin routes
 router.get('/admin/my-blogs', protect, isAdmin, getAdminBlogs);

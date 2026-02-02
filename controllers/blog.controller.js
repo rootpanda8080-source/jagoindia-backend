@@ -186,22 +186,19 @@ export const getBlogById = async (req, res, next) => {
 
 /**
  * POST /api/blogs/:id/like
- * Increment like count for a blog (PUBLIC)
+ * Toggle like for a blog (PUBLIC - anonymous or authenticated)
  */
 export const likeBlog = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Require authenticated user for like toggling
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
-    }
-
     const blog = await Blog.findById(id);
     if (!blog) {
       return res.status(404).json({ success: false, message: 'Blog not found' });
     }
+
+    // Get user identifier: prefer authenticated user ID, fallback to IP address
+    const userId = req.user?.id || req.ip || req.connection.remoteAddress || 'anonymous';
 
     // Toggle like: if user already liked, remove; otherwise add
     const alreadyLiked = (blog.likedBy || []).some((u) => u.toString() === userId);
