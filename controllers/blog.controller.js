@@ -186,35 +186,31 @@ export const getBlogById = async (req, res, next) => {
 
 /**
  * POST /api/blogs/:id/like
- * Toggle like for a blog (PUBLIC - anonymous or authenticated)
+ * Increment like count for a blog (PUBLIC - atomic increment)
+ * Uses atomic database operation for reliability
  */
 export const likeBlog = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const blog = await Blog.findById(id);
+    // Use atomic increment operation for reliability
+    const blog = await Blog.findByIdAndUpdate(
+      id,
+      { $inc: { likes: 1 } },
+      { new: true }
+    ).populate('author', 'name email');
+
     if (!blog) {
-      return res.status(404).json({ success: false, message: 'Blog not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Blog not found' 
+      });
     }
 
-    // Get user identifier: prefer authenticated user ID, fallback to IP address
-    const userId = req.user?.id || req.ip || req.connection.remoteAddress || 'anonymous';
-
-    // Toggle like: if user already liked, remove; otherwise add
-    const alreadyLiked = (blog.likedBy || []).some((u) => u.toString() === userId);
-    if (alreadyLiked) {
-      blog.likedBy = (blog.likedBy || []).filter((u) => u.toString() !== userId);
-      blog.likes = Math.max(0, (blog.likes || 0) - 1);
-    } else {
-      blog.likedBy = blog.likedBy || [];
-      blog.likedBy.push(userId);
-      blog.likes = (blog.likes || 0) + 1;
-    }
-
-    await blog.save();
-    await blog.populate('author', 'name email');
-
-    res.status(200).json({ success: true, blog, liked: !alreadyLiked });
+    res.status(200).json({ 
+      success: true, 
+      likes: blog.likes 
+    });
   } catch (error) {
     next(error);
   }
